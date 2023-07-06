@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+
+import requests
+import re
+import sys
+
+class arguement:
+        def __init__(self, args):
+            self.commands = []
+            self.options = []
+            self.optionValues = {}
+            self.args = args
+            for arg in args:
+                if "-" in arg or "--" in arg:
+                    if "=" in arg:
+                        pair = arg.split("=")
+                        self.options.append(pair[0])
+                        self.optionValues[pair[0]] = pair[1]
+                    else:
+                        self.options.append(arg)
+                else:
+                    self.commands.append(arg)
+
+        def hasOptions(self, options=list):
+            userOptions = set(self.options)
+            requiredOptions = set(options)
+            return len(list(requiredOptions & userOptions)) >= 1
+
+        def getOptionValue(self, option):
+            if option in self.optionValues:
+                return self.optionValues[option]
+            else:
+                return None
+
+        def countOptions(self):
+            return len(self.options)
+
+def help():
+    print("Usage: cc [ --from=<from currency> ] [--to=<to currency>] [<amount>]")
+    print("\n(or)\n")
+    print("Usage: cc [ <from currency> <to currency> <amount>]\n")
+    sys.exit(0)
+
+def calculate(from_currency, to_currency, amount):
+    from_currency = str(from_currency.upper())
+    to_currency = str(to_currency.upper())
+    amount = float(amount)
+
+    pattern = f'"{to_currency}":(\d+(?:\.\d+)?)'
+    response = requests.get(f'https://api.exchangerate-api.com/v4/latest/{from_currency}')
+    if response.status_code != 200:
+        print("Error fetching data from exchangerate-api.com")
+        print("Please check your internet connection and Check your currency code")
+        sys.exit(1)
+    if to_currency not in response.text:
+        print(f"Invalid to currency code: {to_currency}")
+        sys.exit(1)
+    x = re.findall(pattern, response.text)
+    if len(x) == 0:
+        print(f"Invalid from currency code: {from_currency}")
+        sys.exit(1)
+    print(f"{amount} {from_currency} = {float(x[0]) * amount} {to_currency}")
+
+
+if __name__ == "__main__":
+    try:
+        from_currency = None
+        to_currency = None
+        amount = None
+        argsObj = arguement(sys.argv)
+        if argsObj.hasOptions(['--help', '-h']):
+            help()
+            sys.exit(0)
+        # --------------------------------------------------------------------------------------------------    
+        # From Country
+        if argsObj.hasOptions(['--from', '-f']):
+            from_currency = argsObj.getOptionValue('--from')
+            if from_currency == None:
+                from_currency = argsObj.getOptionValue('-f')
+            if from_currency == None:
+                from_currency = str(input("From Currency: "))
+            # To Country
+            if argsObj.hasOptions(['--to', '-t']):
+                to_currency = argsObj.getOptionValue('--to')
+                if to_currency == None:
+                    to_currency = argsObj.getOptionValue('-t')
+                if to_currency == None:
+                    to_currency = str(input("To Currency: "))
+                # Amount
+                if argsObj.hasOptions(['--amount', '-a']):
+                    amount = argsObj.getOptionValue('--amount')
+                    if amount == None:
+                        amount = argsObj.getOptionValue('-a')
+                    if amount == None:
+                        amount = float(input("Amount: "))
+        # --------------------------------------------------------------------------------------------------    
+        if (from_currency == None and to_currency == None and amount == None):
+            args = len(sys.argv) - 1
+            if args == 3:
+                from_currency = sys.argv[1]
+                to_currency = sys.argv[2]
+                amount = float(sys.argv[3])
+            else:
+                print("\nInvalid number of arguments, Required 3 arguments\n")
+                help()
+        # --------------------------------------------------------------------------------------------------    
+        if from_currency == None:
+            print("Specify From currency\n")
+            help()
+            sys.exit(1)
+        if to_currency == None:
+            print("Specify To currency\n")
+            help()
+            sys.exit(1)
+        if amount == None:
+            print("Specify amount\n")
+            help()
+            sys.exit(1)
+        calculate(from_currency, to_currency, amount)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
