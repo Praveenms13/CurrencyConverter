@@ -24,6 +24,8 @@ search.addEventListener("input", updateValue);
 
 function updateValue(e) {
   searchValue = e.target.value;
+console.log(searchValue);
+
 }
 
 // When user clicks, it calls function getresults
